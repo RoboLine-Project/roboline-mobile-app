@@ -1025,6 +1025,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   final supabase = Supabase.instance.client;
 
+  // YENİ: Stream'i zorla yenilemek için benzersiz anahtar
+  Key _streamKey = UniqueKey();
+
   Future<void> _loadMissionState() async {
     try {
       final response = await supabase
@@ -1083,7 +1086,32 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (client.connectionStatus?.state != MqttConnectionState.connected) {
         connectMQTT();
       }
+      // YENİ: Uygulama uyandığında logları otomatik olarak tazelemeyi dener
+      setState(() {
+        _streamKey = UniqueKey();
+      });
     }
+  }
+
+  // --- YENİ: MANUEL YENİLEME FONKSİYONU ---
+  void _verileriYenile() {
+    setState(() {
+      _streamKey = UniqueKey(); // StreamBuilder'ı zorla yeniden başlatır
+    });
+
+    _loadMissionState(); // Butonların durumunu DB'den kontrol et
+
+    if (client.connectionStatus?.state != MqttConnectionState.connected) {
+      connectMQTT(); // Kopmuşsa MQTT'yi tekrar bağla
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sistem ve geçmiş yenilendi!'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
 
   Future<void> _islemOnayiIste(
@@ -1501,20 +1529,35 @@ class _DashboardScreenState extends State<DashboardScreen>
                     color: Colors.black87,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_sweep,
-                    color: Colors.redAccent,
-                    size: 28,
-                  ),
-                  tooltip: "Görev Geçmişini Temizle",
-                  onPressed: _gecmisiTemizle,
+                // YENİ: İkonları yan yana koyabilmek için Row içine alındı
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: Colors.blue,
+                        size: 28,
+                      ),
+                      tooltip: "Geçmişi Yenile",
+                      onPressed: _verileriYenile, // YENİ: Buton eklendi
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_sweep,
+                        color: Colors.redAccent,
+                        size: 28,
+                      ),
+                      tooltip: "Görev Geçmişini Temizle",
+                      onPressed: _gecmisiTemizle,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
+              key: _streamKey, // YENİ: Bu anahtar ile Stream zorla yenilenir
               stream: supabase
                   .from('robot_logs')
                   .stream(primaryKey: ['id'])
@@ -1537,7 +1580,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     String saat =
                         "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
 
-                    // --- YENİ EKLENEN KUSURSUZ İKON VE RENK MANTIĞI ---
                     Color durumRengi;
                     IconData durumIkona;
 
@@ -1555,7 +1597,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                       durumRengi = Colors.blueGrey;
                       durumIkona = Icons.restore;
                     } else {
-                      // Varsayılan: Görev Başlatıldı / Hareket / Devam Ediyor
                       durumRengi = Colors.blue;
                       durumIkona = Icons.play_circle_fill;
                     }
