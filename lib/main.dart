@@ -1019,7 +1019,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool manualStopTriggered = false;
   String lastTarget = "Bilinmiyor";
 
-  final String broker = 'broker.hivemq.com';
+  final String broker = 'test.mosquitto.org';
   final String statusTopic = 'roboline/telemetry/status';
   final String commandTopic = 'roboline/commands/move';
 
